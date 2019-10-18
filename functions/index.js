@@ -1,7 +1,7 @@
 const functions = require('firebase-functions');
 const admin = require('firebase-admin');
+const app = require('./app');
 admin.initializeApp();
 
-exports.uploadFile = functions.https.onRequest((req, res) => {
-  res.jsos({ msg: 'Success!' });
-});
+// Entry point to Express app that handles file upload
+exports.uploadFile = functions.https.onRequest(app);
