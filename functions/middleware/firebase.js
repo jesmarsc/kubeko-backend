@@ -17,7 +17,7 @@ const setCustomClaims = async (req, res, next) => {
   }
 };
 
-const verification = async (req, res, next) => {
+const verifyToken = async (req, res, next) => {
   try {
     res.locals.token = req.headers.authorization.split(' ')[1];
     res.locals.decodedToken = await admin
@@ -29,4 +29,4 @@ const verification = async (req, res, next) => {
   }
 };
 
-module.exports = { verification, setCustomClaims };
+module.exports = { verifyToken, setCustomClaims };
