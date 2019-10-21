@@ -1,8 +1,13 @@
 const express = require('express');
-const fsPromise = require('fs').promises;
+const fs = require('fs');
 const yaml = require('js-yaml');
 const file = require('../middleware/file');
 const admin = require('firebase-admin');
+const firebase = require('../middleware/firebase');
+
+const util = require('util');
+const readFilePromise = util.promisify(fs.readFile);
+const unlinkFilePromise = util.promisify(fs.unlink);
 
 const { KubeConfig } = require('kubernetes-client');
 const Request = require('kubernetes-client/backends/request');
@@ -31,17 +36,22 @@ const setupKubeClient = (ip, token) => {
 router.post(
   '/',
   file.saveAll,
+  firebase.verifyClusterandOwner,
   async (req, res, next) => {
-    if (!res.locals.fields.ip) return next(new Error('Missing IP Address.'));
-    if (Object.keys(res.locals.files).length === 0)
-      return next(new Error('Missing File.'));
+    const {
+      files,
+      fields: { cid },
+      addr,
+      owner,
+      token,
+      decodedToken: { uid },
+      cluster,
+      deployment,
+    } = res.locals;
 
-    const kubeClient = setupKubeClient(
-      res.locals.fields.ip,
-      req.headers.authorization.split(' ')[1]
-    );
+    const kubeClient = setupKubeClient(addr, token);
 
-    const lowerCaseUid = res.locals.decodedToken.uid.toLowerCase();
+    const lowerCaseUid = uid.toLowerCase();
     const k8s = {
       Deployment: kubeClient.apis.apps.v1.ns(lowerCaseUid).deployments,
       Service: kubeClient.api.v1.ns(lowerCaseUid).service,
@@ -55,15 +65,18 @@ router.post(
         .catch(err =>
           k8s.Namespace.post({
             body: { metadata: { name: lowerCaseUid } },
+          }).then(() => {
+            cluster.update({ [uid]: true });
+            deployment.update({ [cid]: true });
           })
         );
-      for (const filePath of Object.values(res.locals.files)) {
-        const fileData = await fsPromise.readFile(filePath, 'utf-8');
+      for (const filePath of Object.values(files)) {
+        const fileData = await readFilePromise(filePath, 'utf-8');
         const resources = yaml.safeLoadAll(fileData);
         for (const resource of resources) {
           await k8s[resource.kind].post({ body: resource });
         }
-        await fsPromise.unlink(filePath);
+        unlinkFilePromise(filePath).catch(next);
       }
       next();
     } catch (error) {

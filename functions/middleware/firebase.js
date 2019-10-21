@@ -1,22 +1,5 @@
 const admin = require('firebase-admin');
 
-const setCustomClaims = async (req, res, next) => {
-  try {
-    if (
-      !res.locals.decodedToken.groups &&
-      !res.locals.decodedToken.groups.includes('kubeko')
-    ) {
-      admin.auth().setCustomUserClaims(res.locals.decodedToken.uid, {
-        groups: ['kubeko'],
-      });
-      throw new Error('Group claim was missing, try again.');
-    }
-    next();
-  } catch (error) {
-    next(error);
-  }
-};
-
 const verifyToken = async (req, res, next) => {
   try {
     res.locals.token = req.headers.authorization.split(' ')[1];
@@ -29,4 +12,32 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-module.exports = { verifyToken, setCustomClaims };
+const verifyClusterandOwner = async (req, res, next) => {
+  try {
+    const uid = res.locals.decodedToken.uid;
+    const cid = res.locals.fields.cid;
+    await admin
+      .database()
+      .ref(`clusters/${cid}`)
+      .once('value')
+      .then(snapshot => {
+        if (!snapshot.exists()) {
+          throw new Error('Invalid cluster selected.');
+        }
+        const { owner, addr } = snapshot.exportVal();
+        res.locals.owner = owner;
+        res.locals.addr = addr;
+        res.locals.cluster = admin
+          .database()
+          .ref(`users/${owner}/clusters/${cid}`);
+        res.locals.deployment = admin
+          .database()
+          .ref(`users/${uid}/deployments`);
+      });
+    next();
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { verifyToken, verifyClusterandOwner };

@@ -1,7 +1,10 @@
 const fs = require('fs');
-const fsPromise = require('fs').promises;
+const os = require('os');
 const path = require('path');
 const Busboy = require('busboy');
+
+const util = require('util');
+const unlinkFilePromise = util.promisify(fs.unlink);
 
 const saveAll = (req, res, next) => {
   res.locals.fields = {};
@@ -12,29 +15,35 @@ const saveAll = (req, res, next) => {
     res.locals.fields[fieldname] = val;
   });
   busboy.on('file', (fieldname, file, filename) => {
-    const filePath = path.join(__dirname, filename);
+    const filePath = path.join(os.tmpdir(), filename);
     const writeStream = file.pipe(fs.createWriteStream(filePath));
 
     res.locals.files[fieldname] = filePath;
-    const writePromise = new Promise((resolve, reject) => {
-      // When source stream emits end, it also calls end on the destination.
-      writeStream.on('finish', resolve);
-      writeStream.on('error', reject);
-    });
 
-    writePromises.push(writePromise);
+    writePromises.push(
+      new Promise((resolve, reject) => {
+        // When source stream emits end, it also calls end on the destination.
+        writeStream.on('finish', resolve);
+        writeStream.on('error', reject);
+      })
+    );
   });
+
   busboy.on('finish', () => {
     Promise.all(writePromises)
-      .then(() => next())
+      .then(() => {
+        if (!res.locals.fields.cid || Object.keys(res.locals.files).length < 1)
+          throw new Error('Missing field or file entry.');
+        next();
+      })
       .catch(next);
   });
   busboy.end(req.rawBody);
 };
 
-const cleanupOnError = async (err, req, res, next) => {
+const cleanupOnError = (err, req, res, next) => {
   for (const filePath of Object.values(res.locals.files)) {
-    await fsPromise.unlink(filePath);
+    unlinkFilePromise(filePath).catch(next);
   }
   next(err);
 };
