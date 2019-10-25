@@ -5,7 +5,7 @@ const serviceAccount = require('./service-account.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
-  databaseURL: 'https://kubeko.firebaseio.com',
+  databaseURL: 'https://kubeko.firebaseio.com'
 });
 
 exports.processSignUp = functions.auth.user().onCreate(user => {

@@ -20,18 +20,23 @@ const setupKubeClient = (ip, token) => {
   kubeconfig.loadFromClusterAndUser(
     {
       server: `https://${ip}`,
-      skipTLSVerify: true,
+      skipTLSVerify: true
     },
     {
-      token,
+      token
     }
   );
 
   return new Client({
     backend: new Request({ kubeconfig }),
-    version: '1.13',
+    version: '1.13'
   });
 };
+
+const makeTimeout = (ms = 10000) =>
+  new Promise((resolve, reject) => {
+    setTimeout(() => reject(new Error('Request to cluster timed out.')), ms);
+  });
 
 router.post(
   '/',
@@ -46,7 +51,7 @@ router.post(
       token,
       decodedToken: { uid },
       cluster,
-      deployment,
+      deployment
     } = res.locals;
 
     const kubeClient = setupKubeClient(addr, token);
@@ -55,21 +60,24 @@ router.post(
     const k8s = {
       Deployment: kubeClient.apis.apps.v1.ns(lowerCaseUid).deployments,
       Service: kubeClient.api.v1.ns(lowerCaseUid).service,
-      Namespace: kubeClient.api.v1.ns,
+      Namespace: kubeClient.api.v1.ns
     };
 
     try {
-      await k8s
-        .Namespace(lowerCaseUid)
-        .get()
-        .catch(err =>
-          k8s.Namespace.post({
-            body: { metadata: { name: lowerCaseUid } },
-          }).then(() => {
-            cluster.update({ [uid]: true });
-            deployment.update({ [cid]: true });
-          })
-        );
+      await Promise.race([
+        k8s
+          .Namespace(lowerCaseUid)
+          .get()
+          .catch(err =>
+            k8s.Namespace.post({
+              body: { metadata: { name: lowerCaseUid } }
+            }).then(() => {
+              cluster.update({ [uid]: true });
+              deployment.update({ [cid]: true });
+            })
+          ),
+        makeTimeout(10000)
+      ]);
       for (const filePath of Object.values(files)) {
         const fileData = await readFilePromise(filePath, 'utf-8');
         const resources = yaml.safeLoadAll(fileData);
