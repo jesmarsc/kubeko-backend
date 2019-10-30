@@ -54,6 +54,7 @@ main.get('/workloads', async (req, res) => {
           .once('value')
           .then(snapshot => {
             clusters.push({
+              key: cid,
               cid,
               ...snapshot.val(),
               deployments: [],
@@ -76,20 +77,21 @@ main.get('/workloads', async (req, res) => {
               const items = deploymentList.body.items;
               for (const deployment of items) {
                 const {
-                  metadata: { name },
+                  metadata: { name = '' },
                   spec: {
                     template: {
-                      metadata: { labels },
-                      spec: { containers }
+                      metadata: { labels = {} },
+                      spec: { containers = [] }
                     }
                   },
                   status: {
-                    replicas,
-                    conditions: [{ type }]
+                    replicas = 0,
+                    conditions: [{ type = '' }]
                   }
                 } = deployment;
 
                 cluster.deployments.push({
+                  key: name,
                   name,
                   labels,
                   containers,
@@ -105,10 +107,11 @@ main.get('/workloads', async (req, res) => {
               const items = serviceList.body.items;
               for (const service of items) {
                 const {
-                  metadata: { name, labels },
-                  spec: { ports, selector, clusterIP, type }
+                  metadata: { name = '', labels = {} },
+                  spec: { ports = [], selector = {}, clusterIP = '', type = '' }
                 } = service;
                 cluster.services.push({
+                  key: name,
                   name,
                   labels,
                   ports,
