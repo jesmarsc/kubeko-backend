@@ -37,6 +37,7 @@ main.get('/workloads', async (req, res) => {
       token,
       decodedToken: { uid }
     } = res.locals;
+
     const snapshot = await admin
       .database()
       .ref(`users/${uid}/deployments`)

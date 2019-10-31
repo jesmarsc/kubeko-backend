@@ -17,8 +17,11 @@ exports.processSignUp = functions.auth.user().onCreate(user => {
 
 const app = require('./app');
 const main = require('./main');
+const proxy = require('./proxy');
 
 // Entry point to Express app that handles file upload
 exports.uploadFile = functions.https.onRequest(app);
 
 exports.api = functions.https.onRequest(main);
+
+exports.proxy = functions.https.onRequest(proxy);
