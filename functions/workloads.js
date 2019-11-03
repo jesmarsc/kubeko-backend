@@ -1,33 +1,14 @@
 const express = require('express');
 const cors = require('cors');
 const admin = require('firebase-admin');
+
+const firebaseWare = require('./middleware/firebase');
+const k8sWare = require('./middleware/k8s');
+const { setupKubeClient } = k8sWare;
+
 const main = express();
 
-const firebase = require('./middleware/firebase');
-
-main.use(cors({ origin: true })).use(firebase.verifyToken);
-
-const { KubeConfig } = require('kubernetes-client');
-const Request = require('kubernetes-client/backends/request');
-const Client = require('kubernetes-client').Client;
-
-const setupKubeClient = (ip, token) => {
-  const kubeconfig = new KubeConfig();
-  kubeconfig.loadFromClusterAndUser(
-    {
-      server: `https://${ip}`,
-      skipTLSVerify: true
-    },
-    {
-      token
-    }
-  );
-
-  return new Client({
-    backend: new Request({ kubeconfig }),
-    version: '1.13'
-  });
-};
+main.use(cors({ origin: true })).use(firebaseWare.verifyToken);
 
 // Given: token, decodedToken
 

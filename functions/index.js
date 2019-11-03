@@ -2,11 +2,9 @@ const functions = require('firebase-functions');
 const admin = require('firebase-admin');
 
 const serviceAccount = require('./service-account.json');
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: 'https://kubeko.firebaseio.com'
-});
+const adminConfig = JSON.parse(process.env.FIREBASE_CONFIG);
+adminConfig.credential = admin.credential.cert(serviceAccount);
+admin.initializeApp(adminConfig);
 
 exports.processSignUp = functions.auth.user().onCreate(user => {
   return admin
@@ -15,13 +13,13 @@ exports.processSignUp = functions.auth.user().onCreate(user => {
     .catch(err => console.log(err));
 });
 
-const app = require('./app');
-const main = require('./main');
+const upload = require('./upload');
+const workloads = require('./workloads');
 const proxy = require('./proxy');
 
 // Entry point to Express app that handles file upload
-exports.uploadFile = functions.https.onRequest(app);
+exports.uploadFile = functions.https.onRequest(upload);
 
-exports.api = functions.https.onRequest(main);
+exports.api = functions.https.onRequest(workloads);
 
 exports.proxy = functions.https.onRequest(proxy);

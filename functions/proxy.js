@@ -1,36 +1,21 @@
 const express = require('express');
 const cors = require('cors');
 const proxy = require('http-proxy-middleware');
-const admin = require('firebase-admin');
+const k8sWare = require('./middleware/k8s');
 
 const app = express();
 
 app.use(cors({ origin: true }));
 
-const getCluster = async (req, res, next) => {
-  const cid = req.params.cid;
-  try {
-    const snapshot = await admin
-      .database()
-      .ref(`clusters/${cid}`)
-      .once('value');
-    const { addr } = snapshot.val();
-    req.addr = addr;
-    next();
-  } catch (err) {
-    res.status(404);
-    next(new Error(`Cannot find cluster with \`cid\` of '${cid}'.`));
-  }
-};
-
 app.use(
   '/clusters/:cid',
-  getCluster,
+  k8sWare.getCluster,
   proxy({
     target: 'https://localhost',
     router: req => `https://${req.addr}`,
-    pathRewrite: { '^/clusters/[^./]+/': '/' },
-    changeOrigin: true
+    pathRewrite: { '^/kubeko/us-central1/proxy/clusters/[^/]+': '' },
+    changeOrigin: true,
+    logLevel: 'silent'
   }),
   (err, req, res, next) => {
     res.json({ status: 'Failure', message: err.message, code: res.statusCode });

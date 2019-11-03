@@ -9,29 +9,10 @@ const util = require('util');
 const readFilePromise = util.promisify(fs.readFile);
 const unlinkFilePromise = util.promisify(fs.unlink);
 
-const { KubeConfig } = require('kubernetes-client');
-const Request = require('kubernetes-client/backends/request');
-const Client = require('kubernetes-client').Client;
+const k8sUtil = require('../middleware/k8s');
+const { setupKubeClient } = k8sUtil;
 
 const router = express.Router();
-
-const setupKubeClient = (ip, token) => {
-  const kubeconfig = new KubeConfig();
-  kubeconfig.loadFromClusterAndUser(
-    {
-      server: `https://${ip}`,
-      skipTLSVerify: true
-    },
-    {
-      token
-    }
-  );
-
-  return new Client({
-    backend: new Request({ kubeconfig }),
-    version: '1.13'
-  });
-};
 
 const makeTimeout = (ms = 10000) =>
   new Promise((resolve, reject) => {
