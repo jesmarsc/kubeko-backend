@@ -21,7 +21,7 @@ app.use(
   proxy({
     target: 'https://localhost',
     router: req => `https://${req.cluster.addr}`,
-    pathRewrite: { '^/kubeko/us-central1/proxy/clusters/[^/]+': '' },
+    pathRewrite: { '^/clusters/[^/]+': '' },
     changeOrigin: true,
     logLevel: 'silent'
   }),
