@@ -41,6 +41,7 @@ router.post(
       for (const fileData of Object.values(files)) {
         const resources = yaml.safeLoadAll(fileData);
         for (const resource of resources) {
+          resource.metadata.namespace = lowerCaseUid;
           waiting.push(k8s[resource.kind].post({ body: resource }));
         }
       }
