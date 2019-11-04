@@ -1,54 +1,41 @@
-const fs = require('fs');
-const os = require('os');
-const path = require('path');
 const Busboy = require('busboy');
 
-const util = require('util');
-const unlinkFilePromise = util.promisify(fs.unlink);
+const processFiles = (req, res, next) => {
+  try {
+    res.locals.fields = {};
+    res.locals.files = {};
+    const busboy = new Busboy({ headers: req.headers });
 
-const saveAll = (req, res, next) => {
-  res.locals.fields = {};
-  res.locals.files = {};
-  const busboy = new Busboy({ headers: req.headers });
-  const writePromises = [];
-  busboy.on('field', (fieldname, val) => {
-    res.locals.fields[fieldname] = val;
-  });
-  busboy.on('file', (fieldname, file, filename) => {
-    const filePath = path.join(os.tmpdir(), filename);
-    const writeStream = file.pipe(fs.createWriteStream(filePath));
+    busboy.on('field', (fieldname, val) => {
+      res.locals.fields[fieldname] = val;
+    });
 
-    res.locals.files[fieldname] = filePath;
+    buffers = {};
+    busboy.on('file', (fieldname, file, filename) => {
+      buffers[fieldname] = [];
 
-    writePromises.push(
-      new Promise((resolve, reject) => {
-        // When source stream emits end, it also calls end on the destination.
-        writeStream.on('finish', resolve);
-        writeStream.on('error', reject);
-      })
-    );
-  });
+      file.on('data', data => {
+        buffers[fieldname].push(data);
+      });
 
-  busboy.on('finish', () => {
-    Promise.all(writePromises)
-      .then(() => {
-        if (!res.locals.fields.cid || Object.keys(res.locals.files).length < 1)
-          throw new Error('Missing field or file entry.');
-        next();
-      })
-      .catch(next);
-  });
-  busboy.end(req.rawBody);
-};
+      file.on('end', () => {
+        res.locals.files[fieldname] = Buffer.concat(
+          buffers[fieldname]
+        ).toString('utf8');
+      });
+    });
 
-const cleanupOnError = (err, req, res, next) => {
-  for (const filePath of Object.values(res.locals.files)) {
-    unlinkFilePromise(filePath).catch(next);
+    busboy.on('finish', () => {
+      next();
+    });
+
+    busboy.end(req.rawBody);
+  } catch (error) {
+    res.status(500);
+    next(error);
   }
-  next(err);
 };
 
 module.exports = {
-  saveAll,
-  cleanupOnError,
+  processFiles
 };
