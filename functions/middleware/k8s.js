@@ -8,11 +8,11 @@ const Client = require('kubernetes-client').Client;
 const firebaseWare = require('./firebase');
 const { createCustomToken } = firebaseWare;
 
-const setupKubeClient = (ip, token) => {
+const setupKubeClient = (addr, token) => {
   const kubeconfig = new KubeConfig();
   kubeconfig.loadFromClusterAndUser(
     {
-      server: `https://${ip}`,
+      server: `https://${addr}`,
       skipTLSVerify: true
     },
     {
@@ -24,23 +24,6 @@ const setupKubeClient = (ip, token) => {
     backend: new Request({ kubeconfig }),
     version: '1.13'
   });
-};
-
-const getCluster = async (req, res, next) => {
-  try {
-    const { cid } = req.params;
-    const snapshot = await admin
-      .database()
-      .ref(`clusters/${cid}`)
-      .once('value');
-    const { addr, owner } = snapshot.val();
-    req.addr = addr;
-    req.owner = owner;
-    next();
-  } catch (error) {
-    res.status(404);
-    next(error);
-  }
 };
 
 const checkNamespace = async (req, res, next) => {
@@ -112,4 +95,4 @@ const checkNamespace = async (req, res, next) => {
   }
 };
 
-module.exports = { setupKubeClient, getCluster, checkNamespace };
+module.exports = { setupKubeClient, checkNamespace };

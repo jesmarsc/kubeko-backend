@@ -1,16 +1,14 @@
 const express = require('express');
 const cors = require('cors');
-const app = express();
-
-const firebaseWare = require('./middleware/firebase');
 const deployRouter = require('./routers/deploy');
+
+const app = express();
 
 app
   .use(cors({ origin: true }))
-  .use(firebaseWare.verifyToken)
   .use('/', deployRouter)
   .use((err, req, res, next) => {
-    res.status(400).json({ code: err.code, msg: err.message });
+    res.json({ status: 'Failure', message: err.message, code: res.statusCode });
   });
 
 module.exports = app;

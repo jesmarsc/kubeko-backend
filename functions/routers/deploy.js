@@ -3,7 +3,7 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const file = require('../middleware/file');
 const admin = require('firebase-admin');
-const firebase = require('../middleware/firebase');
+const firebaseWare = require('../middleware/firebase');
 
 const util = require('util');
 const readFilePromise = util.promisify(fs.readFile);
@@ -21,19 +21,17 @@ const makeTimeout = (ms = 10000) =>
 
 router.post(
   '/',
+  firebaseWare.verifyToken,
   file.saveAll,
-  firebase.verifyClusterandOwner,
   async (req, res, next) => {
     const {
       files,
       fields: { cid },
-      addr,
-      owner,
       token,
-      decodedToken: { uid },
-      cluster,
-      deployment
+      decodedToken: { uid }
     } = res.locals;
+
+    const { addr, owner } = await firebaseWare.getClusterInfo(cid);
 
     const kubeClient = setupKubeClient(addr, token);
 
@@ -53,8 +51,12 @@ router.post(
             k8s.Namespace.post({
               body: { metadata: { name: lowerCaseUid } }
             }).then(() => {
-              cluster.update({ [uid]: true });
-              deployment.update({ [cid]: true });
+              const ref = admin.database().ref();
+              const updates = {
+                [`users/${uid}/deployments/${cid}`]: true,
+                [`users/${owner}/clusters/${cid}/${uid}`]: true
+              };
+              return ref.update(updates);
             })
           ),
         makeTimeout(10000)

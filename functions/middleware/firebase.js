@@ -15,7 +15,7 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-const createCustomToken = async (req, res, next) => {
+const createCustomToken = async () => {
   try {
     const customToken = await admin.auth().createCustomToken('admin', {
       groups: ['admin'],
@@ -29,37 +29,21 @@ const createCustomToken = async (req, res, next) => {
     );
     return response.data.idToken;
   } catch (error) {
-    res.status(500);
     throw error;
   }
 };
 
-const verifyClusterandOwner = async (req, res, next) => {
+const getClusterInfo = async cid => {
   try {
-    const uid = res.locals.decodedToken.uid;
-    const cid = res.locals.fields.cid;
-    await admin
+    const snapshot = await admin
       .database()
       .ref(`clusters/${cid}`)
-      .once('value')
-      .then(snapshot => {
-        if (!snapshot.exists()) {
-          throw new Error('Invalid cluster selected.');
-        }
-        const { owner, addr } = snapshot.exportVal();
-        res.locals.owner = owner;
-        res.locals.addr = addr;
-        res.locals.cluster = admin
-          .database()
-          .ref(`users/${owner}/clusters/${cid}`);
-        res.locals.deployment = admin
-          .database()
-          .ref(`users/${uid}/deployments`);
-      });
-    next();
+      .once('value');
+    const { addr, owner } = snapshot.val();
+    return { addr, owner };
   } catch (error) {
-    next(error);
+    throw error;
   }
 };
 
-module.exports = { verifyToken, verifyClusterandOwner };
+module.exports = { verifyToken, createCustomToken, getClusterInfo };
