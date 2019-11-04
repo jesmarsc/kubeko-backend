@@ -26,15 +26,18 @@ const setupKubeClient = (addr, token) => {
   });
 };
 
-const checkNamespace = async (req, res, next) => {
+const checkNamespace = async ({
+  fields: { cid },
+  addr,
+  owner,
+  decodedToken: { uid, email }
+}) => {
   try {
-    const { cid } = req.params;
-    const { addr, owner } = req;
-    const {
-      decodedToken: { uid, email }
-    } = res.locals;
-    const adminToken = await createCustomToken(res);
-    const opts = { headers: { Authorization: `Bearer ${adminToken}` } };
+    const adminToken = await createCustomToken();
+    const opts = {
+      headers: { Authorization: `Bearer ${adminToken}` },
+      timeout: 10000
+    };
     const lowerCaseUid = uid.toLowerCase();
 
     await axios
@@ -88,10 +91,10 @@ const checkNamespace = async (req, res, next) => {
           });
       });
 
-    next();
+    return lowerCaseUid;
   } catch (error) {
     res.status(500);
-    next(error);
+    throw error;
   }
 };
 

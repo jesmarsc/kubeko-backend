@@ -4,15 +4,10 @@ const admin = require('firebase-admin');
 
 const fileWare = require('../middleware/file');
 const firebaseWare = require('../middleware/firebase');
-const k8sUtil = require('../middleware/k8s');
-const { setupKubeClient } = k8sUtil;
+const k8sWare = require('../middleware/k8s');
+const { setupKubeClient, checkNamespace } = k8sWare;
 
 const router = express.Router();
-
-const makeTimeout = (ms = 10000) =>
-  new Promise((resolve, reject) => {
-    setTimeout(() => reject(new Error('Request to cluster timed out.')), ms);
-  });
 
 router.post(
   '/',
@@ -27,6 +22,9 @@ router.post(
     } = res.locals;
 
     const { addr, owner } = await firebaseWare.getClusterInfo(cid);
+    res.locals.addr = addr;
+    res.locals.owner = owner;
+    await checkNamespace(res.locals);
 
     const kubeClient = setupKubeClient(addr, token);
 
@@ -39,24 +37,6 @@ router.post(
     };
 
     try {
-      await Promise.race([
-        k8s
-          .Namespace(lowerCaseUid)
-          .get()
-          .catch(err =>
-            k8s.Namespace.post({
-              body: { metadata: { name: lowerCaseUid } }
-            }).then(() => {
-              const ref = admin.database().ref();
-              const updates = {
-                [`users/${uid}/deployments/${cid}`]: true,
-                [`users/${owner}/clusters/${cid}/${uid}`]: true
-              };
-              return ref.update(updates);
-            })
-          ),
-        makeTimeout(10000)
-      ]);
       const waiting = [];
       for (const fileData of Object.values(files)) {
         const resources = yaml.safeLoadAll(fileData);
