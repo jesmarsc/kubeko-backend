@@ -85,7 +85,7 @@ const checkNamespace = async ({
             const ref = admin.database().ref();
             const updates = {
               [`users/${uid}/deployments/${cid}`]: true,
-              [`users/${owner}/clusters/${cid}/${uid}`]: true
+              [`clusters-users/${cid}/${uid}`]: true
             };
             return ref.update(updates);
           });
